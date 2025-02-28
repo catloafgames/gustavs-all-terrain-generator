@@ -1,63 +1,148 @@
-from PIL import Image
-import numpy as np
-import argparse
-startx = 4460
-starty = 11400
-max_height = 200
-min_height = 60
+import tkinter as tk
+from tkinter import ttk, filedialog
+from pathlib import Path
+import terrain_generator
 
-def load_image_to_array(image_path):
-    # Open image and convert to grayscale
-    image = Image.open(image_path).convert('L')
+class FileProcessorGUI:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Gustav's all terrain generator")
+        self.root.geometry("600x500")  # Increased height for new field
 
-    img_array = np.array(image)
-    scaled_array = img_array / 255.0
+        # Create main frame with padding
+        self.main_frame = ttk.Frame(root, padding="20")
+        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-    return scaled_array
+        # File Selection
+        self.file_path = tk.StringVar()
+        ttk.Label(self.main_frame, text="Select Heightmap:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(self.main_frame, textvariable=self.file_path, width=50).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Button(self.main_frame, text="Browse", command=self.browse_file).grid(row=0, column=2, pady=5)
 
+        # Save Output As
+        self.save_path = tk.StringVar()
+        ttk.Label(self.main_frame, text="Save Output As:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Entry(self.main_frame, textvariable=self.save_path, width=50).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(self.main_frame, text="Browse", command=self.browse_save_location).grid(row=1, column=2, pady=5)
 
-def generate_replay_from_scale(coords, scale_factor, noise):
-    height = (max_height * scale_factor)
-    if height < min_height:
-        height = min_height
-    posx = startx + coords[0]*10 + ()
-    posy = starty + coords[1]*10
-    command = f"spawnloc --p=DevGround1 --position={posx},{height},{posy}"
+        # Image Size Selection
+        ttk.Label(self.main_frame, text="Number of points to generate:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        size_frame = ttk.Frame(self.main_frame)
+        size_frame.grid(row=2, column=1, sticky=tk.W, pady=5)
 
-    return command
+        self.width = tk.StringVar(value="100")
+        self.height = tk.StringVar(value="100")
+        ttk.Label(size_frame, text="Width:").grid(row=0, column=0)
+        ttk.Entry(size_frame, textvariable=self.width, width=10).grid(row=0, column=1, padx=5)
+        ttk.Label(size_frame, text="Height:").grid(row=0, column=2, padx=5)
+        ttk.Entry(size_frame, textvariable=self.height, width=10).grid(row=0, column=3)
 
+        # Spacing Selection
+        ttk.Label(self.main_frame, text="Spacing between points:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        self.spacing = tk.StringVar(value="10")
+        ttk.Entry(self.main_frame, textvariable=self.spacing, width=10).grid(row=3, column=1, sticky=tk.W, pady=5)
 
-def process_image(image_path, output_size=None):
+        # Start Coordinates
+        ttk.Label(self.main_frame, text="World Start Coordinates:").grid(row=4, column=0, sticky=tk.W, pady=5)
+        coord_frame = ttk.Frame(self.main_frame)
+        coord_frame.grid(row=4, column=1, sticky=tk.W, pady=5)
 
-    scale_array = load_image_to_array(image_path)
+        self.start_x = tk.StringVar(value="0")
+        self.start_y = tk.StringVar(value="0")
+        ttk.Label(coord_frame, text="X:").grid(row=0, column=0)
+        ttk.Entry(coord_frame, textvariable=self.start_x, width=10).grid(row=0, column=1, padx=5)
+        ttk.Label(coord_frame, text="Y:").grid(row=0, column=2, padx=5)
+        ttk.Entry(coord_frame, textvariable=self.start_y, width=10).grid(row=0, column=3)
 
-    if output_size:
-        image = Image.open(image_path).convert('L')
-        image = image.resize((32,32), Image.Resampling.LANCZOS)
-        scale_array = np.array(image) / 255.0
+        # Calculation Output Field
+        ttk.Label(self.main_frame, text="Calculation Output:").grid(row=5, column=0, sticky=tk.W, pady=5)
+        self.output_text = tk.Text(self.main_frame, height=4, width=50)
+        self.output_text.grid(row=5, column=1, columnspan=2, pady=5)
+        self.output_text.config(state='disabled')  # Make it read-only
 
-    commandlist = [f"teleto {startx} {min_height} {starty}"]
-    for idx, x in np.ndenumerate(scale_array):
-         commandlist.append(generate_replay_from_scale(idx, x))
+        # Run Button
+        ttk.Button(self.main_frame, text="Run Script", command=self.run_script).grid(row=6, column=0, columnspan=3,
+                                                                                     pady=20)
 
-    return commandlist
+        # Status Label
+        self.status_var = tk.StringVar()
+        ttk.Label(self.main_frame, textvariable=self.status_var).grid(row=7, column=0, columnspan=3)
+
+    def browse_file(self):
+        filename = filedialog.askopenfilename()
+        self.file_path.set(filename)
+
+    def browse_save_location(self):
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
+        )
+        self.save_path.set(filename)
+
+    def update_calculation_output(self, text):
+        self.output_text.config(state='normal')
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.insert(tk.END, text)
+        self.output_text.config(state='disabled')
+
+    def save_output(self, calculation_result):
+        save_path = self.save_path.get()
+        if save_path:
+            try:
+                with open(save_path, 'w') as f:
+                    f.write(calculation_result)
+                self.status_var.set("Output saved successfully!")
+            except Exception as e:
+                self.status_var.set(f"Error saving output: {str(e)}")
+        else:
+            self.status_var.set("Please select a save location!")
+
+    def run_script(self):
+        # Collect all values
+        try:
+            params = {
+                'file_path': self.file_path.get(),
+                'width': int(self.width.get()),
+                'height': int(self.height.get()),
+                'spacing': int(self.spacing.get()),
+                'start_x': int(self.start_x.get()),
+                'start_y': int(self.start_y.get())
+            }
+
+            # Validate file path
+            if not Path(params['file_path']).exists():
+                self.status_var.set("Error: File does not exist!")
+                return
+
+            # Validate numeric values
+            if any(v < 0 for v in [params['width'], params['height'], params['spacing']]):
+                self.status_var.set("Error: Size and spacing must be positive numbers!")
+                return
+
+            # Example calculation (replace with your actual calculation)
+            sector_length = params['width'] * params["spacing"] / 320
+            sector_height = params['height'] * params["spacing"] / 320
+            total_area = params['width'] * params['height']
+            total_space = params['spacing'] * params['spacing']
+            calculation_result = f"Output will be \n"
+            calculation_result += f"\t{sector_length} sectors long"
+            calculation_result += f"\t{sector_length} sectors high"
+            calculation_result += f"Starting at position: ({params['start_x']}, {params['start_y']})"
+            calculation_result += f"containing {total_area} location proxies"
+            # Update the calculation output
+            self.update_calculation_output(calculation_result)
+
+            # Save the output if a save path is specified
+            self.save_output(calculation_result)
+
+        except ValueError:
+            self.status_var.set("Error: Please enter valid numbers for all numeric fields!")
 
 
 def main():
-
-    parser = argparse.ArgumentParser()
-    
-    args = parser.parse_args()
-
-    image_path = "img.png"
-
-    try:
-        commandList = process_image(image_path, True)
-        with open("output.txt", 'w') as f:
-            for line in commandList:
-                f.write(f"{line}\n")
-    except Exception as e:
-        print(f"Error processing image: {e}")
+    root = tk.Tk()
+    app = FileProcessorGUI(root)
+    root.mainloop()
 
 
 if __name__ == "__main__":
