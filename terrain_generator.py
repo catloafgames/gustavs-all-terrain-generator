@@ -1,20 +1,14 @@
 from PIL import Image
 import numpy as np
-import argparse
-startx = 4460
-starty = 11400
-max_height = 200
-min_height = 60
+import math
 
-
-
-def generate_replay_from_scale(coords, scale_factor):
-    height = (max_height * scale_factor)
-    if height < min_height:
-        height = min_height
-    posx = startx + coords[0]*10 + ()
-    posy = starty + coords[1]*10
-    command = f"spawnloc --p=DevGround1 --position={posx},{height},{posy}"
+def generate_replay_from_scale(coords, x,  params):
+    scale = params["max_height"] - params["min_height"]
+    height = math.ceil((x / 255 * scale) + params["min_height"])
+    print(height)
+    posx = params["start_x"] + coords[0]*params["spacing"]
+    posy = params["start_y"] + coords[1]*params["spacing"]
+    command = f"spawnloc --p=DevGround1 --position={posx},{height},{posy}\n"
 
     return command
 
@@ -22,15 +16,12 @@ def generate_replay_from_scale(coords, scale_factor):
 def process_image(params):
 
     image = Image.open(params["file_path"]).convert('L')
-    image = image.resize((params["width"],params["height"]), Image.Resampling.LANCZOS)
-    scale_array = np.array(image) / 255.0
+    image = image.resize((params["width"], params["length"]), Image.Resampling.LANCZOS)
+    scale_array = np.array(image)
 
-    commandlist = [f"teleto {params.start_x} {min_height} {starty}"]
+    commandlist = [f"teleto {params['start_x']} {params['min_height']} {params['start_y']}\n"]
     for idx, x in np.ndenumerate(scale_array):
-         commandlist.append(generate_replay_from_scale(idx, x))
+         commandlist.append(generate_replay_from_scale(idx, x, params))
 
     return commandlist
-
-
-
 
