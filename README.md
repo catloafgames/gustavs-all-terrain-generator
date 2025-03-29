@@ -1,5 +1,5 @@
 # Gustav's All Terrain Generator
-This is a terrain generator for valheim. It ouputs a list of commands to be run by replay (include link)
+This is a terrain generator for valheim. It ouputs a list of commands to be run by replay (a comfy staff mod by redseiko)
 
 It takes any heightmap, and is designed to have a series of configurable parameters to set the positioning and height of new terrain
 
